@@ -120,7 +120,11 @@ func Part2(data []byte) int {
 		for i := 0; i < matchCount; i++ {
 			cc[cardId+1+i] += cc[cardId]
 		}
+		fmt.Println(cc)
+
 	}
+
+	os.Exit(1)
 
 	sum := 0
 	for _, n := range cc {
@@ -144,7 +148,7 @@ func process(lineIdx int) {
 	for i := lineIdx + 1; i <= lineIdx+matchCount; i++ {
 		cardCount.Add(1)
 		wg.Add(1)
-		go process(i)
+		process(i)
 	}
 }
 
