@@ -116,6 +116,7 @@ func (m *Mapping) SeedInRange(src int) bool {
 	return src >= m.Src && src < m.Src+m.Len
 }
 
+// TODO see https://github.com/Fadi88/AoC/blob/master/2023/day05/code.py
 func (m *Mapping) RangeInRange(start, rng int) bool {
 	return m.Src <= start && start < m.Src+m.Len || // Start is in range
 		m.Src <= start+rng && start+rng < m.Src+m.Len || // End is in range
@@ -126,6 +127,11 @@ func (m *Mapping) RangeInRange(start, rng int) bool {
 func (m *Mapping) GetMapping(src int) (dest int) {
 	return m.Dst - m.Src + src
 }
+
+//func (m *Mapping) GetRangeMapping(start, rng int) (dst, rng int) {
+//	left := max(m.Src, start)
+//	right := min(m.Src+m.Len, start+rng)
+//}
 
 func getSeeds(block string) []int {
 	s := strings.Fields(strings.Split(block, ":")[1])
@@ -163,6 +169,19 @@ func getSeedsFromRanges(seedRanges []int) []int {
 
 	return seeds
 }
+
+//func getSeedsFromRanges(seedRanges []int) []int {
+//	var seeds []int
+//	for i := 0; i < len(seedRanges); i += 2 {
+//		start := seedRanges[i]
+//		stop := start + seedRanges[i+1]
+//		for seed := start; seed <= stop; seed++ {
+//			seeds = append(seeds, seed)
+//		}
+//	}
+//
+//	return seeds
+//}
 
 func Part2(data []byte) int {
 	text := string(data)
