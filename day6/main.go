@@ -4,7 +4,6 @@ import (
 	_ "embed"
 	"fmt"
 	"log"
-	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -15,14 +14,14 @@ func main() {
 
 	// Test data
 	got := Part1(testData)
-	want1 := 35
+	want1 := 288
 	if got != want1 {
 		log.Fatalf("expected %d, got %d", want1, got)
 	}
 	fmt.Printf("Solution part 1: %d\n", Part1(data))
 
 	got = Part2(testData)
-	want2 := 46
+	want2 := 71503
 	if got != want2 {
 		log.Fatalf("expected %d, got %d", want2, got)
 	}
@@ -36,179 +35,80 @@ var data []byte
 
 func readData() {
 	var err error
-	data, err = os.ReadFile("day5/input.txt")
+	data, err = os.ReadFile("day6/input.txt")
 	if err != nil {
 		panic(err)
 	}
 
-	testData, err = os.ReadFile("day5/sample.txt")
+	testData, err = os.ReadFile("day6/sample.txt")
 	if err != nil {
 		panic(err)
 	}
 }
 
-func Part1(data []byte) int {
-	text := string(data)
-	blocks := strings.Split(text, "\r\n\r\n")
-
-	var sources []int
-
-	for iBlock, block := range blocks {
-		if iBlock == 0 {
-			sources = getSeeds(block)
-			continue
-		}
-		lines := strings.Split(block, "\r\n")
-
-		ranges := getRanges(lines[1:])
-
-		for i, src := range sources {
-			for _, rng := range ranges {
-				if rng.SeedInRange(src) {
-					sources[i] = rng.GetMapping(src)
-				}
-			}
-		}
-	}
-
-	minLocation := math.MaxInt
-	for _, result := range sources {
-		if result < minLocation {
-			minLocation = result
-		}
-	}
-	return minLocation
-}
-
-func getRanges(lines []string) []Mapping {
-	var ranges []Mapping
-	for _, line := range lines {
-		fields := strings.Fields(line)
-		r := Mapping{}
-		for i, val := range fields {
-			num, err := strconv.Atoi(val)
-			if err != nil {
-				panic(err)
-			}
-			switch i {
-			case 0:
-				r.Dst = num
-			case 1:
-				r.Src = num
-			case 2:
-				r.Len = num
-			default:
-				panic("impossible")
-			}
-		}
-		ranges = append(ranges, r)
-	}
-	return ranges
-}
-
-type Mapping struct {
-	Src int
-	Dst int
-	Len int
-}
-
-func (m *Mapping) SeedInRange(src int) bool {
-	return src >= m.Src && src < m.Src+m.Len
-}
-
-// TODO see https://github.com/Fadi88/AoC/blob/master/2023/day05/code.py
-func (m *Mapping) RangeInRange(start, rng int) bool {
-	return m.Src <= start && start < m.Src+m.Len || // Start is in range
-		m.Src <= start+rng && start+rng < m.Src+m.Len || // End is in range
-		start <= m.Src && m.Src <= start+rng ||
-		start < m.Src+m.Len && m.Src+m.Len <= start+rng
-}
-
-func (m *Mapping) GetMapping(src int) (dest int) {
-	return m.Dst - m.Src + src
-}
-
-//func (m *Mapping) GetRangeMapping(start, rng int) (dst, rng int) {
-//	left := max(m.Src, start)
-//	right := min(m.Src+m.Len, start+rng)
-//}
-
-func getSeeds(block string) []int {
-	s := strings.Fields(strings.Split(block, ":")[1])
-	seeds := make([]int, len(s))
-
-	for i, f := range s {
-		seed, err := strconv.Atoi(f)
+func parseInts(strs []string) []int {
+	ints := make([]int, 0, len(strs))
+	for _, word := range strs {
+		val, err := strconv.Atoi(word)
 		if err != nil {
 			panic(err)
 		}
-		seeds[i] = seed
+		ints = append(ints, val)
 	}
-	return seeds
+	return ints
 }
 
-func getSeedsFromRanges(seedRanges []int) []int {
-	totalSeeds := 0
+func Part1(data []byte) int {
+	rows := strings.Split(string(data), "\n")
+	times := parseInts(strings.Fields(strings.Split(rows[0], ":")[1]))
+	distances := parseInts(strings.Fields(strings.Split(rows[1], ":")[1]))
 
-	for i := 0; i < len(seedRanges); i += 2 {
-		start := seedRanges[i]
-		stop := start + seedRanges[i+1]
-
-		totalSeeds += stop - start + 1
-	}
-
-	seeds := make([]int, 0, totalSeeds)
-	for i := 0; i < len(seedRanges); i += 2 {
-		start := seedRanges[i]
-		stop := start + seedRanges[i+1]
-
-		for seed := start; seed <= stop; seed++ {
-			seeds = append(seeds, seed)
-		}
-	}
-
-	return seeds
-}
-
-//func getSeedsFromRanges(seedRanges []int) []int {
-//	var seeds []int
-//	for i := 0; i < len(seedRanges); i += 2 {
-//		start := seedRanges[i]
-//		stop := start + seedRanges[i+1]
-//		for seed := start; seed <= stop; seed++ {
-//			seeds = append(seeds, seed)
-//		}
-//	}
-//
-//	return seeds
-//}
-
-func Part2(data []byte) int {
-	text := string(data)
-	blocks := strings.Split(text, "\r\n\r\n")
-
-	seedRanges := getSeeds(blocks[0])
-	overallMin := math.MaxInt
-	for i := 0; i < len(seedRanges); i += 2 {
-		seeds := getSeedsFromRanges(seedRanges[i : i+2])
-
-		for _, block := range blocks[1:] {
-			lines := strings.Split(block, "\r\n")
-
-			ranges := getRanges(lines[1:])
-
-			for i, src := range seeds {
-				for _, rng := range ranges {
-					if rng.SeedInRange(src) {
-						seeds[i] = rng.GetMapping(src)
-					}
-				}
+	var optionsPerRace []int
+	for i := range times {
+		options := 0
+		tRace := times[i]
+		for tHold := 0; tHold <= tRace; tHold++ {
+			d := getDistance(tHold, tRace)
+			if d > distances[i] {
+				options++
 			}
 		}
-		for _, loc := range seeds {
-			overallMin = min(loc, overallMin)
+		optionsPerRace = append(optionsPerRace, options)
+	}
+	product := 1
+	for _, r := range optionsPerRace {
+		product *= r
+	}
+
+	return product
+}
+
+func getDistance(tHold, tRace int) int {
+	return (tRace - tHold) * tHold
+}
+
+func Part2(data []byte) int {
+	rows := strings.Split(string(data), "\r\n")
+
+	timeText := strings.Replace(strings.Split(rows[0], ":")[1], " ", "", -1)
+	tRace, err := strconv.Atoi(timeText)
+	if err != nil {
+		panic(err)
+	}
+
+	distanceText := strings.Replace(strings.Split(rows[1], ":")[1], " ", "", -1)
+	distance, err := strconv.Atoi(distanceText)
+	if err != nil {
+		panic(err)
+	}
+
+	options := 0
+	for tHold := 0; tHold <= tRace; tHold++ {
+		d := getDistance(tHold, tRace)
+		if d > distance {
+			options++
 		}
 	}
 
-	return overallMin
+	return options
 }
