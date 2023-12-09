@@ -42,12 +42,12 @@ var lines [][]byte
 
 func readData() {
 	var err error
-	data, err = os.ReadFile("input.txt")
+	data, err = os.ReadFile("input")
 	if err != nil {
 		panic(err)
 	}
 
-	testData, err = os.ReadFile("sample.txt")
+	testData, err = os.ReadFile("sample")
 	if err != nil {
 		panic(err)
 	}

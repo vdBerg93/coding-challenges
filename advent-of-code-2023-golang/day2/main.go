@@ -10,10 +10,10 @@ import (
 	"strings"
 )
 
-//go:embed day2-input-sample.txt
+//go:embed sample
 var testData []byte
 
-//go:embed day2-input.txt
+//go:embed input
 var data []byte
 
 func main() {

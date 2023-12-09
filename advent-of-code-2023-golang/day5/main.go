@@ -36,12 +36,12 @@ var data []byte
 
 func readData() {
 	var err error
-	data, err = os.ReadFile("day5/input.txt")
+	data, err = os.ReadFile("input")
 	if err != nil {
 		panic(err)
 	}
 
-	testData, err = os.ReadFile("day5/sample.txt")
+	testData, err = os.ReadFile("sample")
 	if err != nil {
 		panic(err)
 	}

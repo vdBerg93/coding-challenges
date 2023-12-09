@@ -10,10 +10,10 @@ import (
 	"unicode"
 )
 
-//go:embed sample.txt
+//go:embed sample
 var testData []byte
 
-//go:embed input.txt
+//go:embed input
 var data []byte
 
 var lines [][]byte

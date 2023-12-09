@@ -13,12 +13,12 @@ import (
 
 func TestMain(m *testing.M) {
 	var err error
-	data, err := os.ReadFile("input.txt")
+	data, err := os.ReadFile("input")
 	if err != nil {
 		panic(err)
 	}
 
-	testData, err := os.ReadFile("sample.txt")
+	testData, err := os.ReadFile("sample")
 	if err != nil {
 		panic(err)
 	}
@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 	fmt.Printf("Part 1 test succeeded.\n")
 	fmt.Printf("Solution part 1: %d\n", Part1(data, "AAA", "ZZZ"))
 
-	testData2, err := os.ReadFile("sample2.txt")
+	testData2, err := os.ReadFile("sample2")
 	if err != nil {
 		panic(err)
 	}
