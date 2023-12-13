@@ -1,2 +1,2 @@
-# AOC23-GoLang
-advent-of-code-2023-golang
+# Coding challenges
+- [Advent of Code 2023](git@github.com:vdBerg93/coding-challenges.git) - Golang 
