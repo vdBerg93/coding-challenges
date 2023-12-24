@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-func TestMain(m *testing.M) {
+func Test_All(t *testing.T) {
 	var err error
 	data, err := os.ReadFile("input")
 	if err != nil {

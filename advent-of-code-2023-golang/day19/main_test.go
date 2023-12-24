@@ -29,147 +29,156 @@ func TestMain(m *testing.M) {
 }
 
 func Test_Part1(t *testing.T) {
-	got := Solve(testData, false)
+	got := Solve(testData)
 	want1 := 62
 	if got != want1 {
 		t.Fatalf("expected %d, got %d", want1, got)
 	}
 	fmt.Printf("Part 1 test succeeded.\n")
-	fmt.Printf("Solution part 1: %d\n", Solve(data, false))
+	fmt.Printf("Solution part 1: %d\n", Solve(data))
 }
 
-func Test_Part2(t *testing.T) {
-	got := Solve(testData, true)
-	want1 := 952408144115
-	if got != want1 {
-		t.Fatalf("expected %d, got %d", want1, got)
+func Solve(data []byte) int {
+	blocks := bytes.Split(data, []byte("\r\n\r\n"))
+
+	wf := parseWorkflows(blocks[0])
+
+	parts := parseParts(blocks[1])
+
+	var accepted []Part
+	for _, part := range parts {
+		wf.PartAccepted(part)
 	}
-	fmt.Printf("Part 2 test succeeded.\n")
-	fmt.Printf("Solution part 2: %d\n", Solve(data, true))
 }
 
-type Point [2]int
+func (wf *Workflows) PartAccepted(part Part) bool {
+	i := 0
+	for {
+		for _, name := range wf.order {
+			rules, ok := wf.op[name]
+			if !ok {
+				panic("missing operation")
+			}
+			if rules[0].Active(part){
 
-type Node struct {
-	Pos Point
-}
+			}
 
-func Solve(data []byte, doHex bool) int {
-	var nodes []Node
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-	boundaryCount := 0
-	for scanner.Scan() {
-		dir, steps, hexString := parseRow(scanner.Text())
-		var previous Node
-		if len(nodes) > 0 {
-			previous = nodes[len(nodes)-1]
 		}
-		if doHex {
-			dir, steps = parseHex(hexString)
-		}
-		newNode := Node{
-			Pos: Point{
-				previous.Pos[0] + steps*dir[0],
-				previous.Pos[1] + steps*dir[1],
-			},
-		}
-		nodes = append(nodes, newNode)
-		boundaryCount += steps
-	}
-
-	surface := shoelace(nodes)
-	interior := surface - boundaryCount/2 + 1 // Pick's theorem
-	return interior + boundaryCount
-}
-
-func parseRow(text string) ([2]int, int, string) {
-	fields := strings.Fields(text)
-	steps, err := strconv.Atoi(fields[1])
-	if err != nil {
-		panic(err)
-	}
-
-	dir := getDirFromChar(fields[0])
-	return dir, steps, strings.Trim(fields[2], "()")
-}
-
-func getDirFromChar(char string) [2]int {
-	switch char {
-	case "R":
-		return right
-	case "L":
-		return left
-	case "U":
-		return up
-	case "D":
-		return down
-	default:
-		panic("not implemented")
+		i++
 	}
 }
 
-func getDirFromNum(num uint64) [2]int {
-	switch num {
-	case 0:
-		return right
-	case 1:
-		return down
-	case 2:
-		return left
-	case 3:
-		return up
-	default:
-		panic("not implemented")
-	}
+type Workflows struct {
+	order []string
+	op    map[string][]Operation
 }
 
-func parseHex(data string) ([2]int, int) {
-	numberStr := strings.Replace(data, "#", "", -1)
-	n, err := strconv.ParseUint(numberStr[0:5], 16, 64)
-	if err != nil {
-		panic(err)
-	}
-	d, err := strconv.ParseUint(string(numberStr[len(numberStr)-1]), 16, 64)
-	if err != nil {
-		panic(err)
-	}
-
-	return getDirFromNum(d), int(n)
+type Operation struct {
+	Source string
+	Type   OperationType
+	Value  int
 }
 
-var (
-	right = Point{0, 1}
-	down  = Point{1, 0}
-	left  = Point{0, -1}
-	up    = Point{-1, 0}
+func (o *Operation) Active(part Part) bool {
+	switch o.Type {
+	case OperationTypeNone:
+		return true
+	case OperationTypeGreater:
+		return part[o.Source] > o.Value
+	case OperationTypeLess:
+		return part[o.Source] < o.Value
+	}
+	panic("impossible")
+}
+
+type OperationType int
+
+const (
+	OperationTypeNone                  = 0
+	OperationTypeGreater OperationType = 1
+	OperationTypeLess                  = 2
 )
 
-func shoelace(nodes []Node) int {
-	n := len(nodes)
-	if n < 3 {
-		// At least 3 vertices are required to form a polygon
-		return 0.0
+func parseWorkflows(data []byte) Workflows {
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+
+	wf := Workflows{
+		order: nil,
+		op:    make(map[string][]Operation),
 	}
+	for scanner.Scan() {
+		row := scanner.Text()
+		fields := strings.Split(row, "{")
 
-	// Initialize the sum variables
-	sumX, sumY := 0, 0
+		name := fields[0]
 
-	// Compute the sum of products
-	for i := 0; i < n-1; i++ {
-		sumX += nodes[i].Pos[0] * nodes[i+1].Pos[1]
-		sumY += nodes[i].Pos[1] * nodes[i+1].Pos[0]
+		var ops []Operation
+		fields = strings.Split(fields[1][:len(fields[1])-1], ",")
+		for _, f := range fields {
+			ops = append(ops, parseOperation(f))
+		}
+
+		wf.op[name] = ops
+		wf.order = append(wf.order, name)
 	}
-
-	// Add the products of the last and first vertices
-	sumX += nodes[n-1].Pos[0] * nodes[0].Pos[1]
-	sumY += nodes[n-1].Pos[1] * nodes[0].Pos[0]
-
-	// Compute the area using the Shoelace formula
-	area := 0.5 * float64(sumX-sumY)
-	if area < 0 {
-		// Take the absolute value since area should be non-negative
-		area = -area
+	return wf
+}
+func parseOperation(text string) Operation {
+	if strings.Contains(text, ">") {
+		f := strings.Split(text, ">")
+		val, err := strconv.Atoi(f[2])
+		if err != nil {
+			panic(err)
+		}
+		return Operation{
+			Source: f[0],
+			Type:   OperationTypeGreater,
+			Value:  val,
+		}
+	} else if strings.Contains(text, "<") {
+		f := strings.Split(text, "<")
+		val, err := strconv.Atoi(f[2])
+		if err != nil {
+			panic(err)
+		}
+		return Operation{
+			Source: f[0],
+			Type:   OperationTypeLess,
+			Value:  val,
+		}
+	} else {
+		val, err := strconv.Atoi(text)
+		if err != nil {
+			panic(err)
+		}
+		return Operation{
+			Type:  OperationTypeNone,
+			Value: val,
+		}
 	}
+}
 
-	return int(area)
+type Part map[string]int
+
+func parseParts(data []byte) []Part {
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	var parts []Part
+	for scanner.Scan() {
+		parts = append(parts, parsePart(scanner.Text()))
+	}
+	return parts
+}
+
+func parsePart(text string) Part {
+	part := Part{}
+	fields := strings.Split(strings.Trim(text, "{}"), ",")
+	for _, f := range fields {
+		sf := strings.Split(f, "=")
+		val, err := strconv.Atoi(sf[2])
+		if err != nil {
+			panic(err)
+		}
+		part[sf[0]] = val
+	}
+	return part
 }
