@@ -8,31 +8,27 @@ import (
 	"io"
 	"log"
 	"maps"
-	"os"
-	"reflect"
 )
 
 //go:embed input.txt
 var input []byte
 
-//go:embed sample3.txt
-var example []byte
-
-//go:embed sample.txt
-var sample []byte
-
-//go:embed sample2.txt
-var sample2 []byte
-
 func main() {
-	want1 := 36
-	data := parseInput(bytes.NewReader(example))
-	if got := part1(data); got != want1 {
-		log.Fatalf("part 1 example: want %v, got %v", want1, got)
-	}
+	data := parseInput(bytes.NewReader(input))
 
-	data = parseInput(bytes.NewReader(input))
-	fmt.Println("Part1: ", part1(data))
+	got1 := part1(data)
+	fmt.Println("Part1: ", got1)
+	got2 := part2(data)
+	fmt.Println("Part2: ", got2)
+
+	want1 := 510
+	if got1 != want1 {
+		log.Fatalf("Part1: want %d, got %d\n", want1, got1)
+	}
+	want2 := 1058
+	if got2 != want2 {
+		log.Fatalf("Part2: want %d, got %d\n", want2, got2)
+	}
 }
 
 func parseInput(r io.Reader) [][]int {
@@ -43,11 +39,7 @@ func parseInput(r io.Reader) [][]int {
 		text := scanner.Text()
 		row := make([]int, 0, len(text))
 		for _, char := range text {
-			if char == '.' {
-				row = append(row, 99)
-			} else {
-				row = append(row, runeToInt(char))
-			}
+			row = append(row, runeToInt(char))
 		}
 		rows = append(rows, row)
 	}
@@ -58,36 +50,45 @@ func runeToInt(r rune) int {
 	return int(r - '0')
 }
 
-func intToRune(i int) rune {
-	return rune(i + '0')
-}
-
 func part1(m [][]int) int {
-	puzzle := Puzzle{
-		m: m,
-	}
-	puzzle.Save(map[Point]struct{}{})
+	peaks, _ := solve(m)
 
-	var peakCount []int
-
-	valleys := puzzle.findAll(0)
-	for i, head := range valleys {
-		puzzle.Save(map[Point]struct{}{})
-		visited, peaks := puzzle.DFS(head, map[Point]struct{}{})
-		puzzle.Save(visited)
-		fmt.Printf("Valley %d (x:%d,y:%d) found %d peaks\n", i, head.x, head.y, len(peaks))
-		peakCount = append(peakCount, len(peaks))
-	}
-
-	var score int
-	for _, sol := range peakCount {
-		score += sol
-	}
-	return score
+	return peaks
 }
 
 type Puzzle struct {
-	m [][]int
+	m     [][]int
+	heads map[Point]struct{}
+}
+
+func (p *Puzzle) reset() {
+	p.heads = make(map[Point]struct{})
+}
+
+func solve(m [][]int) (int, int) {
+	puzzle := Puzzle{
+		m: m,
+	}
+
+	var (
+		trails int
+		peaks  int
+	)
+
+	valleys := puzzle.findAll(0)
+	for _, head := range valleys {
+		puzzle.reset()
+		trailsI := puzzle.DFS(head, map[Point]struct{}{})
+		peaks += len(puzzle.heads)
+		trails += trailsI
+	}
+
+	return peaks, trails
+}
+
+func part2(m [][]int) int {
+	_, trails := solve(m)
+	return trails
 }
 
 func (p *Puzzle) Get(loc Point) int {
@@ -105,74 +106,39 @@ func (p *Puzzle) GetNextUnvisited(visited map[Point]struct{}, node Point) []Poin
 	return nextPositions
 }
 
-func (p *Puzzle) DFS(node Point, visited map[Point]struct{}) (map[Point]struct{}, map[Point]struct{}) {
-	//fmt.Println("start recursion")
-
-	heads := make(map[Point]struct{})
+func (p *Puzzle) DFS(node Point, visited map[Point]struct{}) int {
+	var trails int
 	for {
 		if p.Get(node) == 9 {
-			if _, ok := heads[node]; !ok {
-				heads[node] = struct{}{}
-				fmt.Printf("found peak at (x:%d, y:%d)\n", node.x, node.y)
-				print()
+			if _, ok := p.heads[node]; !ok {
+				p.heads[node] = struct{}{}
 			}
 		}
 
 		visited[node] = struct{}{}
 		nextPositions := p.GetNextUnvisited(visited, node)
-		p.Save(visited)
+
 		if len(nextPositions) == 1 {
 			node = nextPositions[0]
 			continue
 		} else if len(nextPositions) > 1 {
 			for _, next := range nextPositions {
-				visitI, headsI := p.DFS(next, visited)
-				maps.Copy(heads, headsI)
-				maps.Copy(visitI, visited)
-				p.Save(visitI)
-				//fmt.Printf("Found %d heads\n", len(headsI))
+				visitedCp := make(map[Point]struct{})
+				maps.Copy(visitedCp, visited)
+				trailsI := p.DFS(next, visitedCp)
+				trails += trailsI
 			}
-			return visited, heads
+			return trails
 		} else {
-			p.Save(visited)
-			return visited, heads
-		}
-	}
-}
-
-func (p *Puzzle) Save(visited map[Point]struct{}) {
-	cp := make([][]rune, 0, len(p.m))
-	for _, row := range p.m {
-		rowCp := make([]rune, 0, len(row))
-		for _, val := range row {
-			if val == 99 {
-				rowCp = append(rowCp, '.')
-			} else {
-				rowCp = append(rowCp, intToRune(val))
+			if p.Get(node) == 9 {
+				trails++
 			}
+			return trails
 		}
-		cp = append(cp, rowCp)
 	}
-	for point := range visited {
-		cp[point.y][point.x] = 'o'
-	}
-
-	file, err := os.OpenFile("output.txt", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
-
-	for _, row := range cp {
-		_, _ = file.WriteString(string(row) + "\n")
-	}
-
 }
 
 func (p *Puzzle) Next(last Point) []Point {
-	if reflect.DeepEqual(last, Point{5, 13}) {
-		print()
-	}
 	nexts := make([]Point, 0, 4)
 	if next, ok := p.MoveOK(last, right); ok {
 		nexts = append(nexts, next)
@@ -185,12 +151,6 @@ func (p *Puzzle) Next(last Point) []Point {
 	}
 	if next, ok := p.MoveOK(last, down); ok {
 		nexts = append(nexts, next)
-	}
-
-	for _, pt := range nexts {
-		if reflect.DeepEqual(pt, Point{4, 6}) {
-			print()
-		}
 	}
 
 	return nexts
