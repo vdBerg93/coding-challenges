@@ -21,18 +21,30 @@ func main() {
 
 func part1(input string, N int) int {
 	stones := strings.Fields(input)
-	fmt.Println(strings.Join(stones, " "))
 
-	for i := 1; i <= N; i++ {
-		newStones := make([]string, 0, len(stones)*2)
-		for _, stone := range stones {
-			newStones = append(newStones, do(stone)...)
-		}
-		stones = newStones
-		fmt.Printf("i:%d, %s\n", i, strings.Join(stones, " "))
+	// Use a map to track stones and their counts, reducing unnecessary duplication
+	stoneCounts := make(map[string]int)
+	for _, stone := range stones {
+		stoneCounts[stone]++
 	}
 
-	return len(stones)
+	for i := 1; i <= N; i++ {
+		newStoneCounts := make(map[string]int, len(stoneCounts)*2)
+		for stone, count := range stoneCounts {
+			processed := do(stone)
+			for _, newStone := range processed {
+				newStoneCounts[newStone] += count
+			}
+		}
+		stoneCounts = newStoneCounts
+	}
+
+	totalStones := 0
+	for _, count := range stoneCounts {
+		totalStones += count
+	}
+
+	return totalStones
 }
 
 func do(stone string) []string {
@@ -43,7 +55,7 @@ func do(stone string) []string {
 	} else if l%2 == 0 {
 		return []string{
 			rmTrailZero(stone[0 : l/2]),
-			rmTrailZero(stone[l/2 : l]),
+			rmTrailZero(stone[l/2:]),
 		}
 	} else {
 		num, _ := strconv.Atoi(stone)
