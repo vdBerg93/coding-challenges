@@ -203,6 +203,19 @@ func getAdjecent(p [2]int) [][2]int {
 	}
 }
 
+func getAdjecentWithCorners(p [2]int) [][2]int {
+	return [][2]int{
+		{p[0], p[1] + 1},
+		{p[0], p[1] - 1},
+		{p[0] + 1, p[1]},
+		{p[0] - 1, p[1]},
+		{p[0] + 1, p[1] + 1},
+		{p[0] - 1, p[1] - 1},
+		{p[0] + 1, p[1] - 1},
+		{p[0] - 1, p[1] + 1},
+	}
+}
+
 func isNeighbor(m [][]rune, last, next [2]int) ([2]int, bool) {
 	if next[1] < 0 || next[1] >= len(m[0]) || next[0] < 0 || next[0] >= len(m) {
 		return next, false
@@ -225,6 +238,22 @@ func getFencePoints(m [][]rune, area map[[2]int]struct{}) [][2]int {
 				continue
 			}
 			fencePoints = append(fencePoints, n)
+		}
+	}
+
+	return fencePoints
+}
+
+func getFencePoints3(area map[[2]int]struct{}) map[[2]int]int {
+	fencePoints := make(map[[2]int]int)
+	for p1 := range area {
+		N := getAdjecentWithCorners(p1)
+		for _, n := range N {
+			_, ok := area[n]
+			if ok {
+				continue
+			}
+			fencePoints[n]++
 		}
 	}
 
@@ -271,26 +300,161 @@ func getEmptyMap(rows, cols int) [][]rune {
 	return m
 }
 
+//func part2(input []byte) int {
+//	m := parseInput(input)
+//	sortedAreas := getAreas(m)
+//	var total int
+//	for plant, areas := range sortedAreas {
+//		for _, area := range areas {
+//			//fmt.Println("Plant: ", string(plant))
+//			fensePoints := getFencePoints2(area)
+//			hor, ver, poi := groupPoints2(plant, fensePoints)
+//			sum := (hor + ver + poi)
+//			fmt.Printf("Plant: %v found %d fence parts. Hor: %d, Vert: %d, Points: %d\n", string(plant), sum, hor, ver, poi)
+//			total += len(area) * sum
+//		}
+//	}
+//
+//	return total
+//}
+
 func part2(input []byte) int {
 	m := parseInput(input)
 	sortedAreas := getAreas(m)
 	var total int
 	for plant, areas := range sortedAreas {
 		for _, area := range areas {
-			fmt.Println("Plant: ", string(plant))
-			fensePoints := getFencePoints(m, area)
-			if plant == 'C' {
-				//printPoints(fensePoints)
-				print()
-			}
-			hor, ver, poi := groupPoints2(fensePoints)
-			sum := (hor + ver + poi)
-			fmt.Printf("Plant: %v found %d fence parts. Hor: %d, Vert: %d, Points: %d\n", string(plant), sum, hor, ver, poi)
-			total += len(area) * sum
+			//fmt.Println("Plant: ", string(plant))
+			fensePoints := getFencePoints3(area)
+			inside, outside := detectCorners(area, fensePoints)
+			corners := inside + outside
+			fmt.Printf("Plant: %v found %d fence corners. In: %d, Out: %d\n", string(plant), corners, inside, outside)
+			total += len(area) * corners
 		}
 	}
 
 	return total
+}
+
+// checkCorners checks if there are any corners on the
+// current coordinates. It checks for both, outside
+// and inside corners
+func checkCorners(input [][]string, current [2]int) int {
+	count := 0
+	gardenType := input[current[0]][current[1]]
+	x, y := current[1], current[0]
+
+	if x == 0 && y == 0 {
+		count += 1
+	}
+
+	if x == 0 && y == len(input)-1 {
+		count += 1
+	}
+
+	if x == len(input[0])-1 && y == len(input)-1 {
+		count += 1
+	}
+
+	if x == len(input[0])-1 && y == 0 {
+		count += 1
+	}
+
+	// top left outside corner
+	// ##   __   |#
+	// #O   #O   |O
+	if (x > 0 && y > 0 && input[y][x-1] != gardenType && input[y-1][x] != gardenType) ||
+		(x > 0 && y == 0 && input[y][x-1] != gardenType) || (x == 0 && y > 0 && input[y-1][x] != gardenType) {
+		count += 1
+	}
+
+	// top left inside corner
+	// OO
+	// O#
+	if x < len(input[0])-1 && y < len(input)-1 && input[y][x+1] == gardenType && input[y+1][x] == gardenType && input[y+1][x+1] != gardenType {
+		count += 1
+	}
+
+	// top right outside corner
+	// ##   __    #|
+	// O#   O#    O|
+	if (x < len(input[0])-1 && y > 0 && input[y][x+1] != gardenType && input[y-1][x] != gardenType) ||
+		(x < len(input[0])-1 && y == 0 && input[y][x+1] != gardenType) || (x == len(input[0])-1 && y > 0 && input[y-1][x] != gardenType) {
+		count += 1
+	}
+
+	// top right inside corner
+	// OO
+	// #O
+	if x > 0 && y < len(input)-1 && input[y][x-1] == gardenType && input[y+1][x] == gardenType && input[y+1][x-1] != gardenType {
+		count += 1
+	}
+
+	// bottom left outside corner
+	// #O   #O    |O
+	// ##   --    |#
+	if (x > 0 && y < len(input)-1 && input[y][x-1] != gardenType && input[y+1][x] != gardenType) ||
+		(x > 0 && y == len(input)-1 && input[y][x-1] != gardenType) || (x == 0 && y < len(input)-1 && input[y+1][x] != gardenType) {
+		count += 1
+	}
+
+	// bottom left inside corner
+	// O#
+	// OO
+	if x < len(input[0])-1 && y > 0 && input[y][x+1] == gardenType && input[y-1][x] == gardenType && input[y-1][x+1] != gardenType {
+		count += 1
+	}
+
+	// bottom right outside corner
+	// O#   O#    O|
+	// ##   --    #|
+	if (x < len(input[0])-1 && y < len(input)-1 && input[y][x+1] != gardenType && input[y+1][x] != gardenType) ||
+		(x < len(input[0])-1 && y == len(input)-1 && input[y][x+1] != gardenType) || (x == len(input[0])-1 && y < len(input)-1 && input[y+1][x] != gardenType) {
+		count += 1
+	}
+
+	// bottom right inside corner
+	// #O
+	// OO
+	if x > 0 && y > 0 && input[y][x-1] == gardenType && input[y-1][x] == gardenType && input[y-1][x-1] != gardenType {
+		count += 1
+	}
+	return count
+}
+
+//func detectCorner(m [][]rune, p [2]int) bool {
+//	if (p[0] == 0 && p[1] == 0) || // Top left map
+//		(p[0] == 0 && p[1] == len(m[0])-1) || // Top right map
+//		(p[0] == len(m)-1 && p[1] == 0) || // Bottom left map
+//		(p[0] == len(m)-1 && p[1] == len(m[0])-1) { // Bottom right map
+//		return true
+//	}
+//
+//}
+
+func detectCorners(area map[[2]int]struct{}, fence map[[2]int]int) (int, int) {
+	var outside, inside int
+	for point, count := range fence {
+		N := getFreePoints(area, point)
+		if N == 1 {
+			inside += count
+		}
+		if N == 7 {
+			fmt.Println("outside ", count)
+			outside += count
+		}
+	}
+	return inside, outside
+}
+
+func getFreePoints(area map[[2]int]struct{}, point [2]int) int {
+	free := 0
+	for _, p := range getAdjecentWithCorners(point) {
+		if _, ok := area[p]; !ok {
+			free++
+		}
+	}
+	return free
 }
 
 //func printPoints(p [][2]int) {
@@ -464,7 +628,7 @@ func groupPoints(points [][2]int) [][][2]int {
 
 var debug bool
 
-func groupPoints2(points [][2]int) (int, int, int) {
+func groupPoints2(plant rune, points [][2]int) (int, int, int) {
 	// Maps to store points by x and y values
 	verticalMap := make(map[int][]int)
 	horizontalMap := make(map[int][]int)
@@ -480,37 +644,64 @@ func groupPoints2(points [][2]int) (int, int, int) {
 	for _, p := range points {
 		togo[p]++
 	}
+	if plant == 'B' {
+		print()
+	}
 
 	var verticalLines int
 	for x, line := range verticalMap {
-		fmt.Println("detecting vertical ", x)
+		if debug {
+			fmt.Println("detecting vertical ", x)
+		}
 		slices.Sort(line)
 		parts := split(line)
 		for _, part := range parts {
-			verticalLines++
+			var pp [][2]int
 			for _, y := range part {
-				point := [2]int{y, x}
-				if cnt, ok := togo[point]; ok && cnt >= 1 {
-					togo[point]--
+				pp = append(pp, [2]int{y, x})
+			}
+			allOK := true
+			for _, p := range pp {
+				if cnt, ok := togo[p]; !ok || cnt < 1 {
+					allOK = false
 				}
 			}
+
+			if allOK {
+				for _, p := range pp {
+					togo[p]--
+				}
+			}
+			verticalLines++
 		}
 	}
-	debug = true
+	//debug = true
 
 	var horizontalLines int
 	for y, line := range horizontalMap {
-		fmt.Println("detecting horizontal ", y)
+		if debug {
+			fmt.Println("detecting horizontal ", y)
+		}
 		slices.Sort(line)
 		parts := split(line)
 		for _, part := range parts {
-			horizontalLines++
+			var pp [][2]int
 			for _, x := range part {
-				point := [2]int{y, x}
-				if cnt, ok := togo[point]; ok && cnt >= 1 {
-					togo[point]--
+				pp = append(pp, [2]int{y, x})
+			}
+			allOK := true
+			for _, p := range pp {
+				if cnt, ok := togo[p]; !ok || cnt < 1 {
+					allOK = false
 				}
 			}
+
+			if allOK {
+				for _, p := range pp {
+					togo[p]--
+				}
+			}
+			horizontalLines++
 		}
 	}
 
