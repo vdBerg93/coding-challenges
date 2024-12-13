@@ -1,39 +1,21 @@
 package main
 
-import "testing"
+import (
+	_ "embed"
+	"testing"
+)
 
-func Test_countParts(t *testing.T) {
-	tests := []struct {
-		name string
-		arg  []int
-		want int
-	}{
-		{
-			name: "a",
-			arg:  []int{0, 1, 3, 4},
-			want: 2,
-		},
-		{
-			name: "b",
-			arg:  []int{0, 1, 1, 2},
-			want: 2,
-		},
-		{
-			name: "c",
-			arg:  []int{-1, 1, 1, 1, 2, 2, 3, 3, 4, 4},
-			want: 2,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			parts := split(tt.arg)
-			got := len(parts)
-			if got != tt.want {
-				t.Errorf("countParts() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
+//go:embed example1.txt
+var example1 []byte
+
+//go:embed example2.txt
+var example2 []byte
+
+//go:embed example3.txt
+var example3 []byte
+
+//go:embed example4.txt
+var example4 []byte
 
 func Test_part2(t *testing.T) {
 	tests := []struct {
