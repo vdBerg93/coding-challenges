@@ -4,14 +4,16 @@ import (
 	_ "embed"
 	"fmt"
 	"log"
+	"os"
 	"strings"
+	"time"
 )
 
 //go:embed input.txt
 var input []byte
 
 func main() {
-	fmt.Println("Part1:", part1(input)) // 1318523
+	//fmt.Println("Part1:", part1(input)) // 1318523
 	fmt.Println("Part2:", part2(input)) // 1337648
 }
 
@@ -193,6 +195,8 @@ func part2(input []byte) int {
 
 	for _, move := range moves {
 		m.move2(move)
+		os.WriteFile("output.txt", []byte(m.String()), 744)
+		time.Sleep(time.Second / 10)
 	}
 
 	return m.score()
