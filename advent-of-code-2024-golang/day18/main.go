@@ -4,10 +4,11 @@ import (
 	"container/heap"
 	_ "embed"
 	"fmt"
-	"log"
 	"maps"
 	"math"
+	"strconv"
 	"strings"
+	"time"
 )
 
 //go:embed input.txt
@@ -17,211 +18,234 @@ var input []byte
 var example []byte
 
 func main() {
-	fmt.Println("Part1 example:", part1(example))
-	fmt.Println("Part1:", part1(input))
-	fmt.Println("Part2 example:", part2(example))
-	fmt.Println("Part2:", part2(input))
+	fmt.Println("Part1 example:", part1(example, 7, 7, 12))
+	fmt.Println("Part1:", part1(input, 71, 71, 1024))
+	fmt.Println("Part2 example:", part2(example, 7, 7))
+	fmt.Println("Part1:", part2(input, 71, 71))
 }
 
 const visualize = false
 
-func part1(input []byte) int {
-	m := parseMap(input)
-	start := m.Find('S')
-	end := m.Find('E')
-	cost, _ := Dijkstra(m, start, end)
+func part1(input []byte, szX, szY, bytes int) int {
+	obstacles := parseInput(input)
+	D := newDijkstra(szX, szY, obstacles[0:bytes])
+	start := Point{0, 0}
+	end := Point{szX - 1, szY - 1}
+	cost, _ := D.Run(start, end)
 	return cost
 }
 
-func part2(input []byte) int {
-	m := parseMap(input)
-	start := m.Find('S')
-	end := m.Find('E')
-	_, path := Dijkstra(m, start, end)
-	return len(path)
+func part2(input []byte, szX, szY int) Point {
+	obstacles := parseInput(input)
+	start := Point{0, 0}
+	end := Point{szX - 1, szY - 1}
+	for bytes := len(obstacles); bytes >= 0; bytes-- {
+		D := newDijkstra(szX, szY, obstacles[0:bytes])
+		cost, _ := D.Run(start, end)
+		if cost != -1 {
+			return obstacles[bytes]
+		}
+	}
+	return Point{}
 }
 
 const linesep = "\r\n"
 
-type Map struct {
-	m [][]rune
+type Dijkstra struct {
+	visited     map[VisitedKey][]VisitedKey
+	visitedCost map[VisitedKey]int
+	queue       PriorityQueue
+	obs         []Point
+	sizeX       int
+	sizeY       int
 }
 
-func (m *Map) Find(r rune) Point {
-	for y, row := range m.m {
-		for x, cell := range row {
-			if cell == r {
-				return Point{x, y}
-			}
-		}
+func newDijkstra(szX, szY int, obstacles []Point) Dijkstra {
+	m := Dijkstra{
+		visited:     make(map[VisitedKey][]VisitedKey),
+		visitedCost: make(map[VisitedKey]int),
+		queue:       make(PriorityQueue, 0),
+		obs:         obstacles,
+		sizeX:       szX,
+		sizeY:       szY,
 	}
-	log.Panicf("solution not found for %v", string(r))
-	return Point{}
+	heap.Init(&m.queue)
+	return m
 }
 
-func (m *Map) Get(p Point) rune {
-	return m.m[p.y][p.x]
-}
-
-func (m *Map) occupied(p Point) bool {
-	if p.x < 0 || p.x >= len(m.m[0]) || p.y < 0 || p.y >= len(m.m) {
-		return true
-	}
-	if m.Get(p) == '#' {
-		return true
-	}
-	return false
-}
-
-func parseMap(input []byte) Map {
+func parseInput(input []byte) []Point {
 	rows := strings.Split(string(input), linesep)
-	m := make([][]rune, 0, len(rows))
+	obs := make([]Point, 0, len(rows))
 	for _, r := range rows {
-		m = append(m, []rune(r))
+		f := strings.Split(r, ",")
+		x, _ := strconv.Atoi(f[0])
+		y, _ := strconv.Atoi(f[1])
+		obs = append(obs, Point{x: x, y: y})
 	}
-	return Map{
-		m: m,
-	}
+	return obs
 }
 
 type VisitedKey struct {
-	p Point
-	d Point
+	pos Point
 }
 
-// Dijkstra finds the cheapest route from top left to bottom right
-func Dijkstra(track Map, start, end Point) (int, map[Point]struct{}) {
-
-	visited := make(map[VisitedKey][]VisitedKey)
-	visitedCost := make(map[VisitedKey]int)
-	priorityQueue := make(PriorityQueue, 0)
-	heap.Init(&priorityQueue)
-
-	startState := State{&State{}, start, right, 0}
-	heap.Push(&priorityQueue, startState)
+// Run finds the cheapest route from top left to bottom right
+func (d *Dijkstra) Run(start, end Point) (int, map[Point]struct{}) {
+	startState := State{&State{}, start, 0}
+	heap.Push(&d.queue, startState)
 
 	best := math.MaxInt
 	var solutions []VisitedKey
 
-	for priorityQueue.Len() > 0 {
-		current := heap.Pop(&priorityQueue).(State)
+	for d.queue.Len() > 0 {
+		current := heap.Pop(&d.queue).(State)
 		if current.cost > best {
-			paths := backTrack(visited, startState.Key(), solutions, 0)
-			return best, paths
+			break
 		}
+		d.Print(current)
 
 		if current.pos == end && current.cost <= best {
 			best = min(best, current.cost)
 			solutions = append(solutions, current.Key())
 		}
 
-		cost, costOk := visitedCost[current.Key()]
-		if costOk && current.cost > cost {
+		costPrevious, costOk := d.visitedCost[current.Key()]
+		if costOk && current.cost > costPrevious {
+			if visualize {
+				fmt.Println("same pos higher cost")
+			}
 			continue
 		}
 
-		parents, ok := visited[current.Key()]
+		parents, ok := d.visited[current.Key()]
 		if current != startState {
 			parents = append(parents, current.parent.Key())
 		}
-		visited[current.Key()] = parents
-		visitedCost[current.Key()] = current.cost
+		d.visited[current.Key()] = parents
+		d.visitedCost[current.Key()] = current.cost
 
 		if ok {
 			continue
 		}
 		if visualize {
-			fmt.Printf("Exploring %s: %+v\n", getHeading(current.dir), current)
+			fmt.Printf("Exploring %+v\n", current)
 		}
 
-		expandFrontier(track, &priorityQueue, current, best)
+		d.expandFrontier(current, best)
+	}
+
+	if best != math.MaxInt {
+		return best, d.backTrack(startState.Key(), solutions, 0)
 	}
 
 	return -1, nil // No valid path found
 }
 
-func backTrack(visited map[VisitedKey][]VisitedKey, start VisitedKey, solution []VisitedKey, i int) map[Point]struct{} {
-	path := make(map[Point]struct{})
-
-	for _, s := range solution {
-		path[s.p] = struct{}{}
-		if s.p == start.p {
-			break
-		}
-		locs := backTrack(visited, start, visited[s], i+1)
-		maps.Copy(path, locs)
-	}
-
-	return path
-}
-
-func expandFrontier(track Map, queue *PriorityQueue, current State, best int) {
-	for _, i := range []int{-1, 0, 1} {
-		next := doStep(current, i)
+func (d *Dijkstra) expandFrontier(current State, best int) {
+	for _, dir := range []Point{left, right, up, down} {
+		next := current.move(dir)
 		if next.cost > best {
 			continue
 		}
 		if visualize {
 			fmt.Printf("Expanding with %+v\n", next)
 		}
-		if track.occupied(next.pos) {
+		if d.occupied(next) {
 			if visualize {
 				fmt.Println("occupied")
 			}
 			continue
 		}
-		heap.Push(queue, next)
+		heap.Push(&d.queue, next)
 	}
 }
 
-const (
-	costStraight = 1
-	costRotation = 1000
-)
-
-func (s *State) forward() State {
+func (s *State) move(dir Point) State {
 	return State{
 		pos: Point{
-			x: s.pos.x + s.dir.x,
-			y: s.pos.y + s.dir.y,
+			x: s.pos.x + dir.x,
+			y: s.pos.y + dir.y,
 		},
-		dir:    s.dir,
-		cost:   s.cost + costStraight,
+		cost:   s.cost + 1,
 		parent: s,
 	}
 }
 
-func (s *State) rotate(dir int) State {
-	return State{
-		pos: s.pos,
-		dir: Point{
-			x: -s.dir.y * dir,
-			y: s.dir.x * dir,
-		},
-		cost:   s.cost + costRotation,
-		parent: s,
-	}
+func (d *Dijkstra) getObstacles(t int) []Point {
+	//last := min(len(d.obs), t)
+	//return d.obs[:last]
+	return d.obs
 }
 
-// doStep: dir=-1 -> CCW, dir=1 -> CW, 0=straight
-func doStep(pose State, dir int) State {
-	if dir == 0 {
-		return pose.forward()
+func (d *Dijkstra) occupied(p State) bool {
+	if d.outsideGrid(p.pos) {
+		return true
 	}
-	return pose.rotate(dir)
+	for _, o := range d.getObstacles(p.cost) {
+		if p.pos.x == o.x && p.pos.y == o.y {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *Dijkstra) outsideGrid(p Point) bool {
+	return p.x < 0 || p.x >= d.sizeX || p.y < 0 || p.y >= d.sizeY
+}
+
+func (d *Dijkstra) backTrack(start VisitedKey, solution []VisitedKey, i int) map[Point]struct{} {
+	path := make(map[Point]struct{})
+
+	for _, s := range solution {
+		path[s.pos] = struct{}{}
+		if s.pos == start.pos {
+			break
+		}
+		locs := d.backTrack(start, d.visited[s], i+1)
+		maps.Copy(path, locs)
+	}
+
+	return path
+}
+
+func (d *Dijkstra) Print(state State) {
+	if !visualize {
+		return
+	}
+	fmt.Printf("Printing %+v\n", state)
+	m := make([][]rune, 0, d.sizeY)
+	for y := 0; y < d.sizeY; y++ {
+		row := make([]rune, 0, d.sizeX)
+		for x := 0; x < d.sizeX; x++ {
+			row = append(row, '.')
+		}
+		m = append(m, row)
+	}
+
+	m[state.pos.y][state.pos.x] = '@'
+
+	obs := d.getObstacles(state.cost)
+	for _, o := range obs {
+		m[o.y][o.x] = '#'
+	}
+
+	b := strings.Builder{}
+	for _, row := range m {
+		b.WriteString(string(row) + "\n")
+	}
+	fmt.Println(b.String())
+	time.Sleep(100 * time.Millisecond)
 }
 
 type State struct {
 	parent *State
 	pos    Point
-	dir    Point
 	cost   int
 }
 
 func (s *State) Key() VisitedKey {
 	return VisitedKey{
-		p: s.pos,
-		d: s.dir,
+		pos: s.pos,
 	}
 }
 
